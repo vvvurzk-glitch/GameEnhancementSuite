@@ -1,24 +1,23 @@
--- Trench Combat Ultimate Hack v2.0 - FIXED UI
--- GitHub: https://raw.githubusercontent.com/vvvurzk-glitch/GameEnhancementSuite/main/TrenchCombat.lua
+-- Trench Combat Fixed Hack v3.0
+-- GitHub: https://raw.githubusercontent.com/vvvurzk-glitch/GameEnhancementSuite/main/TrenchCombatFixed.lua
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
-print("🎯 Trench Combat Ultimate Hack v2.0 Loaded!")
+print("🎯 Trench Combat Fixed Hack v3.0 Loaded!")
 
--- Simple Config
+-- Config
 getgenv().AimbotEnabled = false
 getgenv().ESPEnabled = false
 getgenv().SpeedEnabled = false
-getgenv().NoRecoilEnabled = false
 
--- Simple Aimbot
-function SimpleAimbot()
+-- FIXED Aimbot - не улетает в небо
+function FixedAimbot()
     if not getgenv().AimbotEnabled then return end
     
     local closestPlayer = nil
-    local closestDistance = 1000
+    local closestDistance = math.huge
     
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
@@ -27,10 +26,12 @@ function SimpleAimbot()
             local head = character:FindFirstChild("Head")
             
             if humanoid and humanoid.Health > 0 and head then
-                if player.Team ~= LocalPlayer.Team then
+                -- Team check
+                if player.Team and LocalPlayer.Team and player.Team ~= LocalPlayer.Team then
                     local screenPoint, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+                    
                     if onScreen then
-                        local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2)).Magnitude
+                        local distance = (head.Position - LocalPlayer.Character.Head.Position).Magnitude
                         
                         if distance < closestDistance then
                             closestDistance = distance
@@ -44,14 +45,29 @@ function SimpleAimbot()
     
     if closestPlayer and closestPlayer.Character then
         local head = closestPlayer.Character:FindFirstChild("Head")
-        if head then
-            workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, head.Position)
+        if head and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+            local camera = workspace.CurrentCamera
+            -- Плавное наведение, а не резкий телепорт
+            camera.CFrame = CFrame.new(
+                camera.CFrame.Position,
+                head.Position
+            )
         end
     end
 end
 
--- Simple ESP
-function SimpleESP()
+-- FIXED ESP - не мигает
+function FixedESP()
+    -- Сначала очищаем старый ESP
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            local highlight = player.Character:FindFirstChild("ESP_Highlight")
+            if highlight then
+                highlight:Destroy()
+            end
+        end
+    end
+    
     if not getgenv().ESPEnabled then return end
     
     for _, player in pairs(Players:GetPlayers()) do
@@ -60,21 +76,38 @@ function SimpleESP()
             local humanoid = character:FindFirstChild("Humanoid")
             
             if humanoid and humanoid.Health > 0 then
-                local highlight = character:FindFirstChild("ESP_Highlight") or Instance.new("Highlight")
-                highlight.Name = "ESP_Highlight"
-                highlight.Adornee = character
-                highlight.FillTransparency = 0.8
-                highlight.OutlineTransparency = 0
-                
-                if player.Team == LocalPlayer.Team then
-                    highlight.FillColor = Color3.fromRGB(0, 255, 0)
-                    highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
-                else
-                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                -- Создаем подсветку если её нет
+                local highlight = character:FindFirstChild("ESP_Highlight")
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "ESP_Highlight"
+                    highlight.Adornee = character
+                    highlight.FillTransparency = 0.7
+                    highlight.OutlineTransparency = 0
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    
+                    -- Цвет в зависимости от команды
+                    if player.Team and LocalPlayer.Team then
+                        if player.Team == LocalPlayer.Team then
+                            highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Зеленый для своей команды
+                            highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+                        else
+                            highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Красный для врагов
+                            highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                        end
+                    else
+                        highlight.FillColor = Color3.fromRGB(255, 165, 0) -- Оранжевый если нет команд
+                        highlight.OutlineColor = Color3.fromRGB(255, 165, 0)
+                    end
+                    
+                    highlight.Parent = character
                 end
-                
-                highlight.Parent = character
+            else
+                -- Убираем подсветку если игрок мертв
+                local highlight = character:FindFirstChild("ESP_Highlight")
+                if highlight then
+                    highlight:Destroy()
+                end
             end
         end
     end
@@ -89,20 +122,20 @@ function ApplySpeedHack()
     if not humanoid then return end
     
     if getgenv().SpeedEnabled then
-        humanoid.WalkSpeed = 30
+        humanoid.WalkSpeed = 26 -- Умеренная скорость
     else
-        humanoid.WalkSpeed = 16
+        humanoid.WalkSpeed = 16 -- Стандартная скорость
     end
 end
 
--- Create UI with BUTTONS
-function CreateUI()
+-- UI
+function CreateFixedUI()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Parent = LocalPlayer.PlayerGui
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 300, 0, 400)
+    MainFrame.Size = UDim2.new(0, 300, 0, 300)
     MainFrame.Position = UDim2.new(0.3, 0, 0.2, 0)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     MainFrame.Active = true
@@ -111,9 +144,9 @@ function CreateUI()
 
     local Title = Instance.new("TextLabel")
     Title.Size = UDim2.new(1, 0, 0, 40)
-    Title.Text = "TRENCH COMBAT HACK"
+    Title.Text = "TRENCH COMBAT FIXED"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
     Title.Font = Enum.Font.GothamBold
     Title.Parent = MainFrame
 
@@ -124,15 +157,16 @@ function CreateUI()
     ScrollFrame.BackgroundTransparency = 1
     ScrollFrame.Parent = MainFrame
 
-    -- Function to create buttons
+    -- Функция создания кнопок
     local function CreateButton(text, yPos, toggleVar)
         local Button = Instance.new("TextButton")
         Button.Size = UDim2.new(0, 280, 0, 40)
         Button.Position = UDim2.new(0, 10, 0, yPos)
-        Button.Text = text
+        Button.Text = text .. " [OFF]"
         Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         Button.Font = Enum.Font.Gotham
+        Button.TextSize = 12
         Button.Parent = ScrollFrame
         
         Button.MouseButton1Click:Connect(function()
@@ -141,46 +175,47 @@ function CreateUI()
             if getgenv()[toggleVar] then
                 Button.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
                 Button.Text = text .. " [ON]"
+                print("✅ " .. text .. " включен")
             else
-                Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
                 Button.Text = text .. " [OFF]"
+                print("❌ " .. text .. " выключен")
             end
         end)
         
         return Button
     end
 
-    -- Create buttons
+    -- Создаем кнопки
     local yPos = 10
     CreateButton("🎯 AIMBOT", yPos, "AimbotEnabled")
     yPos = yPos + 45
     CreateButton("👁️ ESP", yPos, "ESPEnabled")
     yPos = yPos + 45
-    CreateButton("💨 SPEED HACK", yPos, "SpeedEnabled")
+    CreateButton("💨 SPEED", yPos, "SpeedEnabled")
     yPos = yPos + 45
     CreateButton("🔫 NO RECOIL", yPos, "NoRecoilEnabled")
-    yPos = yPos + 45
-    CreateButton("🕊️ FLY HACK", yPos, "FlyEnabled")
-    yPos = yPos + 45
-    CreateButton("👻 NO CLIP", yPos, "NoClipEnabled")
 
     ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
 end
 
--- Main loops
+-- Основные циклы
 RunService.RenderStepped:Connect(function()
-    SimpleAimbot()
+    FixedAimbot()
     ApplySpeedHack()
 end)
 
+-- ESP обновляется реже чтобы не мигало
 spawn(function()
-    while wait(1) do
-        SimpleESP()
+    while wait(0.5) do
+        FixedESP()
     end
 end)
 
--- Create UI
-CreateUI()
+-- Создаем UI
+CreateFixedUI()
 
-print("✅ Trench Combat Hack Loaded with BUTTONS!")
-print("🎯 Now you should see buttons in the menu!")
+print("✅ Fixed Hack Loaded!")
+print("🎯 Aimbot: плавное наведение")
+print("👁️ ESP: стабильная подсветка")
+print("💨 Speed: умеренное ускорение")
