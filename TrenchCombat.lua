@@ -1,23 +1,35 @@
--- Trench Combat Fixed Hack v3.0
--- GitHub: https://raw.githubusercontent.com/vvvurzk-glitch/GameEnhancementSuite/main/TrenchCombatFixed.lua
+-- Trench Combat Silent Aim + FOV
+-- GitHub: https://raw.githubusercontent.com/vvvurzk-glitch/GameEnhancementSuite/main/TrenchCombatSilent.lua
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-print("🎯 Trench Combat Fixed Hack v3.0 Loaded!")
+print("🎯 Trench Combat Silent Aim + FOV Loaded!")
 
 -- Config
-getgenv().AimbotEnabled = false
-getgenv().ESPEnabled = false
-getgenv().SpeedEnabled = false
+getgenv().SilentAimEnabled = false
+getgenv().FOVCircle = false
+getgenv().FOVSize = 80
+getgenv().TeamCheck = true
+getgenv().VisibleCheck = false
 
--- FIXED Aimbot - не улетает в небо
-function FixedAimbot()
-    if not getgenv().AimbotEnabled then return end
+-- FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Radius = getgenv().FOVSize
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 2
+FOVCircle.Filled = false
+FOVCircle.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2)
+
+-- Silent Aim Function
+function GetClosestPlayer()
+    if not getgenv().SilentAimEnabled then return nil end
     
     local closestPlayer = nil
-    local closestDistance = math.huge
+    local closestDistance = getgenv().FOVSize
     
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
@@ -26,196 +38,196 @@ function FixedAimbot()
             local head = character:FindFirstChild("Head")
             
             if humanoid and humanoid.Health > 0 and head then
-                -- Team check
-                if player.Team and LocalPlayer.Team and player.Team ~= LocalPlayer.Team then
-                    local screenPoint, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+                -- Team Check
+                if getgenv().TeamCheck then
+                    if player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then
+                        continue
+                    end
+                end
+                
+                -- Get screen position
+                local screenPoint, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
                     
-                    if onScreen then
-                        local distance = (head.Position - LocalPlayer.Character.Head.Position).Magnitude
-                        
-                        if distance < closestDistance then
-                            closestDistance = distance
-                            closestPlayer = player
-                        end
+                    -- Check if within FOV
+                    if distance <= closestDistance then
+                        closestDistance = distance
+                        closestPlayer = player
                     end
                 end
             end
         end
     end
     
-    if closestPlayer and closestPlayer.Character then
-        local head = closestPlayer.Character:FindFirstChild("Head")
-        if head and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-            local camera = workspace.CurrentCamera
-            -- Плавное наведение, а не резкий телепорт
-            camera.CFrame = CFrame.new(
-                camera.CFrame.Position,
-                head.Position
-            )
-        end
-    end
+    return closestPlayer
 end
 
--- FIXED ESP - не мигает
-function FixedESP()
-    -- Сначала очищаем старый ESP
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Character then
-            local highlight = player.Character:FindFirstChild("ESP_Highlight")
-            if highlight then
-                highlight:Destroy()
-            end
-        end
-    end
+-- Hook for silent aim
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
     
-    if not getgenv().ESPEnabled then return end
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local character = player.Character
-            local humanoid = character:FindFirstChild("Humanoid")
-            
-            if humanoid and humanoid.Health > 0 then
-                -- Создаем подсветку если её нет
-                local highlight = character:FindFirstChild("ESP_Highlight")
-                if not highlight then
-                    highlight = Instance.new("Highlight")
-                    highlight.Name = "ESP_Highlight"
-                    highlight.Adornee = character
-                    highlight.FillTransparency = 0.7
-                    highlight.OutlineTransparency = 0
-                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    
-                    -- Цвет в зависимости от команды
-                    if player.Team and LocalPlayer.Team then
-                        if player.Team == LocalPlayer.Team then
-                            highlight.FillColor = Color3.fromRGB(0, 255, 0) -- Зеленый для своей команды
-                            highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
-                        else
-                            highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Красный для врагов
-                            highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                        end
-                    else
-                        highlight.FillColor = Color3.fromRGB(255, 165, 0) -- Оранжевый если нет команд
-                        highlight.OutlineColor = Color3.fromRGB(255, 165, 0)
-                    end
-                    
-                    highlight.Parent = character
-                end
-            else
-                -- Убираем подсветку если игрок мертв
-                local highlight = character:FindFirstChild("ESP_Highlight")
-                if highlight then
-                    highlight:Destroy()
+    if getgenv().SilentAimEnabled and (method == "FireServer" or method == "InvokeServer") then
+        if tostring(self) == "WeaponRemote" or tostring(self):find("Weapon") or tostring(self):find("Gun") then
+            local closestPlayer = GetClosestPlayer()
+            if closestPlayer and closestPlayer.Character then
+                local head = closestPlayer.Character:FindFirstChild("Head")
+                if head then
+                    -- Modify arguments to hit the target
+                    args[1] = head.Position -- Target position
+                    print("🎯 Silent Aim: Hitting " .. closestPlayer.Name)
                 end
             end
         end
     end
-end
+    
+    return oldNamecall(self, unpack(args))
+end)
 
--- Speed Hack
-function ApplySpeedHack()
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid then return end
-    
-    if getgenv().SpeedEnabled then
-        humanoid.WalkSpeed = 26 -- Умеренная скорость
-    else
-        humanoid.WalkSpeed = 16 -- Стандартная скорость
-    end
-end
+setreadonly(mt, true)
+
+-- FOV Update
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Radius = getgenv().FOVSize
+    FOVCircle.Visible = getgenv().FOVCircle
+    FOVCircle.Position = UserInputService:GetMouseLocation()
+end)
 
 -- UI
-function CreateFixedUI()
+function CreateSilentAimUI()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Parent = LocalPlayer.PlayerGui
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 300, 0, 300)
-    MainFrame.Position = UDim2.new(0.3, 0, 0.2, 0)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    MainFrame.Size = UDim2.new(0, 300, 0, 350)
+    MainFrame.Position = UDim2.new(0, 10, 0, 10)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
     MainFrame.Active = true
     MainFrame.Draggable = true
     MainFrame.Parent = ScreenGui
 
     local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 40)
-    Title.Text = "TRENCH COMBAT FIXED"
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Text = "SILENT AIM + FOV"
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(0, 80, 0)
     Title.Font = Enum.Font.GothamBold
     Title.Parent = MainFrame
 
     local ScrollFrame = Instance.new("ScrollingFrame")
-    ScrollFrame.Size = UDim2.new(1, 0, 1, -40)
-    ScrollFrame.Position = UDim2.new(0, 0, 0, 40)
+    ScrollFrame.Size = UDim2.new(1, 0, 1, -30)
+    ScrollFrame.Position = UDim2.new(0, 0, 0, 30)
     ScrollFrame.ScrollBarThickness = 5
     ScrollFrame.BackgroundTransparency = 1
     ScrollFrame.Parent = MainFrame
 
-    -- Функция создания кнопок
     local function CreateButton(text, yPos, toggleVar)
         local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(0, 280, 0, 40)
+        Button.Size = UDim2.new(0, 280, 0, 35)
         Button.Position = UDim2.new(0, 10, 0, yPos)
-        Button.Text = text .. " [OFF]"
+        Button.Text = text
         Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         Button.Font = Enum.Font.Gotham
         Button.TextSize = 12
         Button.Parent = ScrollFrame
         
-        Button.MouseButton1Click:Connect(function()
-            getgenv()[toggleVar] = not getgenv()[toggleVar]
-            
+        local function UpdateButton()
             if getgenv()[toggleVar] then
                 Button.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
-                Button.Text = text .. " [ON]"
-                print("✅ " .. text .. " включен")
+                Button.Text = text .. " ✓"
             else
-                Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                Button.Text = text .. " [OFF]"
-                print("❌ " .. text .. " выключен")
+                Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                Button.Text = text
             end
+        end
+        
+        Button.MouseButton1Click:Connect(function()
+            getgenv()[toggleVar] = not getgenv()[toggleVar]
+            UpdateButton()
         end)
         
+        UpdateButton()
         return Button
     end
 
-    -- Создаем кнопки
-    local yPos = 10
-    CreateButton("🎯 AIMBOT", yPos, "AimbotEnabled")
-    yPos = yPos + 45
-    CreateButton("👁️ ESP", yPos, "ESPEnabled")
-    yPos = yPos + 45
-    CreateButton("💨 SPEED", yPos, "SpeedEnabled")
-    yPos = yPos + 45
-    CreateButton("🔫 NO RECOIL", yPos, "NoRecoilEnabled")
+    local function CreateSlider(text, yPos, valueVar, minVal, maxVal)
+        local SliderFrame = Instance.new("Frame")
+        SliderFrame.Size = UDim2.new(0, 280, 0, 50)
+        SliderFrame.Position = UDim2.new(0, 10, 0, yPos)
+        SliderFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        SliderFrame.Parent = ScrollFrame
+        
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, 0, 0, 20)
+        Label.Text = text .. ": " .. getgenv()[valueVar]
+        Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Label.BackgroundTransparency = 1
+        Label.Font = Enum.Font.Gotham
+        Label.TextSize = 12
+        Label.Parent = SliderFrame
+        
+        local Slider = Instance.new("TextButton")
+        Slider.Size = UDim2.new(0, 260, 0, 20)
+        Slider.Position = UDim2.new(0, 10, 0, 25)
+        Slider.Text = ""
+        Slider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        Slider.Parent = SliderFrame
+        
+        local Fill = Instance.new("Frame")
+        Fill.Size = UDim2.new((getgenv()[valueVar] - minVal) / (maxVal - minVal), 0, 1, 0)
+        Fill.Position = UDim2.new(0, 0, 0, 0)
+        Fill.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+        Fill.BorderSizePixel = 0
+        Fill.Parent = Slider
+        
+        Slider.MouseButton1Down:Connect(function()
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                local mousePos = UserInputService:GetMouseLocation()
+                local relativeX = math.clamp(mousePos.X - Slider.AbsolutePosition.X, 0, Slider.AbsoluteSize.X)
+                local value = minVal + (relativeX / Slider.AbsoluteSize.X) * (maxVal - minVal)
+                getgenv()[valueVar] = math.floor(value)
+                Label.Text = text .. ": " .. getgenv()[valueVar]
+                Fill.Size = UDim2.new((getgenv()[valueVar] - minVal) / (maxVal - minVal), 0, 1, 0)
+            end)
+            
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    connection:Disconnect()
+                end
+            end)
+        end)
+        
+        return SliderFrame
+    end
 
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
+    local yPos = 10
+    CreateButton("🎯 SILENT AIM", yPos, "SilentAimEnabled")
+    yPos = yPos + 40
+    CreateButton("⭕ FOV CIRCLE", yPos, "FOVCircle")
+    yPos = yPos + 40
+    CreateButton("👥 TEAM CHECK", yPos, "TeamCheck")
+    yPos = yPos + 40
+    CreateButton("👀 VISIBLE CHECK", yPos, "VisibleCheck")
+    yPos = yPos + 50
+    CreateSlider("FOV SIZE", yPos, "FOVSize", 20, 200)
+
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 60)
 end
 
--- Основные циклы
-RunService.RenderStepped:Connect(function()
-    FixedAimbot()
-    ApplySpeedHack()
-end)
+-- Create UI
+CreateSilentAimUI()
 
--- ESP обновляется реже чтобы не мигало
-spawn(function()
-    while wait(0.5) do
-        FixedESP()
-    end
-end)
-
--- Создаем UI
-CreateFixedUI()
-
-print("✅ Fixed Hack Loaded!")
-print("🎯 Aimbot: плавное наведение")
-print("👁️ ESP: стабильная подсветка")
-print("💨 Speed: умеренное ускорение")
+print("✅ Silent Aim + FOV Loaded!")
+print("🎯 Стреляй куда угодно - попадаешь в цели в FOV круге")
+print("⭕ FOV круг показывает зону поражения")
+print("👥 Team Check - не стреляет по своим")
