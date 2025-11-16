@@ -1,151 +1,269 @@
--- Trench Combat Silent Aim + FOV
--- GitHub: https://raw.githubusercontent.com/vvvurzk-glitch/GameEnhancementSuite/main/TrenchCombatSilent.lua
+-- Trench Combat GOD MODE
+-- GitHub: https://raw.githubusercontent.com/vvvurzk-glitch/GameEnhancementSuite/main/TrenchCombatGod.lua
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-print("🎯 Trench Combat Silent Aim + FOV Loaded!")
+print("🎯 Trench Combat GOD MODE Loaded!")
 
--- Config
-getgenv().SilentAimEnabled = false
-getgenv().FOVCircle = false
-getgenv().FOVSize = 80
-getgenv().TeamCheck = true
-getgenv().VisibleCheck = false
+-- GOD MODE Config
+getgenv().GodMode = false
+getgenv().OneShotKill = false
+getgenv().InfiniteAmmo = false
+getgenv().NoRecoil = false
+getgenv().RapidFire = false
+getgenv().SuperSpeed = false
+getgenv().SuperJump = false
+getgenv().FlyMode = false
 
--- FOV Circle
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Visible = false
-FOVCircle.Radius = getgenv().FOVSize
-FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-FOVCircle.Thickness = 2
-FOVCircle.Filled = false
-FOVCircle.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2)
-
--- Silent Aim Function
-function GetClosestPlayer()
-    if not getgenv().SilentAimEnabled then return nil end
+-- GOD MODE: Бессмертие
+function EnableGodMode()
+    local character = LocalPlayer.Character
+    if not character then return end
     
-    local closestPlayer = nil
-    local closestDistance = getgenv().FOVSize
-    
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local character = player.Character
-            local humanoid = character:FindFirstChild("Humanoid")
-            local head = character:FindFirstChild("Head")
-            
-            if humanoid and humanoid.Health > 0 and head then
-                -- Team Check
-                if getgenv().TeamCheck then
-                    if player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then
-                        continue
-                    end
-                end
-                
-                -- Get screen position
-                local screenPoint, onScreen = workspace.CurrentCamera:WorldToViewportPoint(head.Position)
-                if onScreen then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
-                    
-                    -- Check if within FOV
-                    if distance <= closestDistance then
-                        closestDistance = distance
-                        closestPlayer = player
-                    end
-                end
-            end
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        if getgenv().GodMode then
+            humanoid.MaxHealth = math.huge
+            humanoid.Health = math.huge
+        else
+            humanoid.MaxHealth = 100
+            humanoid.Health = 100
         end
     end
-    
-    return closestPlayer
 end
 
--- Hook for silent aim
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
+-- ONE SHOT KILL: Одно попадание - убийство
+function OneShotKillHook()
+    if not getgenv().OneShotKill then return end
     
-    if getgenv().SilentAimEnabled and (method == "FireServer" or method == "InvokeServer") then
-        if tostring(self) == "WeaponRemote" or tostring(self):find("Weapon") or tostring(self):find("Gun") then
-            local closestPlayer = GetClosestPlayer()
-            if closestPlayer and closestPlayer.Character then
-                local head = closestPlayer.Character:FindFirstChild("Head")
-                if head then
-                    -- Modify arguments to hit the target
-                    args[1] = head.Position -- Target position
-                    print("🎯 Silent Aim: Hitting " .. closestPlayer.Name)
+    -- Перехватываем урон
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid.MaxHealth = 1
+                humanoid.Health = 1
+            end
+        end
+    end
+end
+
+-- INFINITE AMMO: Бесконечные патроны
+function InfiniteAmmo()
+    if not getgenv().InfiniteAmmo then return end
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") then
+            -- Убираем расход патронов
+            local config = tool:FindFirstChild("Configuration")
+            if config then
+                local ammo = config:FindFirstChild("Ammo")
+                if ammo then
+                    ammo.Value = 999
                 end
             end
         end
     end
+end
+
+-- NO RECOIL: Нет отдачи
+function NoRecoilHook()
+    if not getgenv().NoRecoil then return end
     
-    return oldNamecall(self, unpack(args))
-end)
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") then
+            -- Убираем отдачу
+            local recoil = tool:FindFirstChild("Recoil")
+            if recoil then
+                recoil.Value = 0
+            end
+        end
+    end
+end
 
-setreadonly(mt, true)
+-- RAPID FIRE: Очень быстрая стрельба
+function RapidFireHook()
+    if not getgenv().RapidFire then return end
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") then
+            -- Убираем задержку между выстрелами
+            local fireRate = tool:FindFirstChild("FireRate")
+            if fireRate then
+                fireRate.Value = 0.01
+            end
+        end
+    end
+end
 
--- FOV Update
-RunService.RenderStepped:Connect(function()
-    FOVCircle.Radius = getgenv().FOVSize
-    FOVCircle.Visible = getgenv().FOVCircle
-    FOVCircle.Position = UserInputService:GetMouseLocation()
-end)
+-- SUPER SPEED: Сверхскорость
+function SuperSpeedHook()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        if getgenv().SuperSpeed then
+            humanoid.WalkSpeed = 50
+        else
+            humanoid.WalkSpeed = 16
+        end
+    end
+end
 
--- UI
-function CreateSilentAimUI()
+-- SUPER JUMP: Супер-прыжок
+function SuperJumpHook()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        if getgenv().SuperJump then
+            humanoid.JumpPower = 100
+        else
+            humanoid.JumpPower = 50
+        end
+    end
+end
+
+-- FLY MODE: Режим полета
+function FlyModeHook()
+    if not getgenv().FlyMode then 
+        local character = LocalPlayer.Character
+        if character then
+            local root = character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local bodyVelocity = root:FindFirstChild("FlyBodyVelocity")
+                if bodyVelocity then
+                    bodyVelocity:Destroy()
+                end
+            end
+        end
+        return 
+    end
+    
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local bodyVelocity = root:FindFirstChild("FlyBodyVelocity") or Instance.new("BodyVelocity")
+    bodyVelocity.Name = "FlyBodyVelocity"
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+    bodyVelocity.Parent = root
+    
+    -- Управление полетом
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        bodyVelocity.Velocity = root.CFrame.LookVector * 50
+    elseif UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        bodyVelocity.Velocity = -root.CFrame.LookVector * 50
+    elseif UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        bodyVelocity.Velocity = -root.CFrame.RightVector * 50
+    elseif UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        bodyVelocity.Velocity = root.CFrame.RightVector * 50
+    elseif UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+    elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        bodyVelocity.Velocity = Vector3.new(0, -50, 0)
+    else
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    end
+end
+
+-- AUTO WIN: Авто-победа
+function AutoWin()
+    if not getgenv().AutoWin then return end
+    
+    -- Убиваем всех врагов
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            if player.Team ~= LocalPlayer.Team then
+                local humanoid = player.Character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.Health = 0
+                end
+            end
+        end
+    end
+end
+
+-- UI для GOD MODE
+function CreateGodModeUI()
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Parent = LocalPlayer.PlayerGui
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 300, 0, 350)
+    MainFrame.Size = UDim2.new(0, 320, 0, 400)
     MainFrame.Position = UDim2.new(0, 10, 0, 10)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
     MainFrame.Active = true
     MainFrame.Draggable = true
     MainFrame.Parent = ScreenGui
 
     local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 30)
-    Title.Text = "SILENT AIM + FOV"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.BackgroundColor3 = Color3.fromRGB(0, 80, 0)
+    Title.Size = UDim2.new(1, 0, 0, 40)
+    Title.Text = "🔥 GOD MODE - TRENCH COMBAT"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
     Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 16
     Title.Parent = MainFrame
 
     local ScrollFrame = Instance.new("ScrollingFrame")
-    ScrollFrame.Size = UDim2.new(1, 0, 1, -30)
-    ScrollFrame.Position = UDim2.new(0, 0, 0, 30)
+    ScrollFrame.Size = UDim2.new(1, 0, 1, -40)
+    ScrollFrame.Position = UDim2.new(0, 0, 0, 40)
     ScrollFrame.ScrollBarThickness = 5
     ScrollFrame.BackgroundTransparency = 1
     ScrollFrame.Parent = MainFrame
 
-    local function CreateButton(text, yPos, toggleVar)
+    local function CreateGodButton(text, yPos, toggleVar, description)
+        local ButtonFrame = Instance.new("Frame")
+        ButtonFrame.Size = UDim2.new(0, 300, 0, 50)
+        ButtonFrame.Position = UDim2.new(0, 10, 0, yPos)
+        ButtonFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        ButtonFrame.Parent = ScrollFrame
+        
         local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(0, 280, 0, 35)
-        Button.Position = UDim2.new(0, 10, 0, yPos)
+        Button.Size = UDim2.new(0, 280, 0, 30)
+        Button.Position = UDim2.new(0, 10, 0, 5)
         Button.Text = text
         Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        Button.Font = Enum.Font.Gotham
-        Button.TextSize = 12
-        Button.Parent = ScrollFrame
+        Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Button.Font = Enum.Font.GothamBold
+        Button.TextSize = 14
+        Button.Parent = ButtonFrame
+        
+        local DescLabel = Instance.new("TextLabel")
+        DescLabel.Size = UDim2.new(1, 0, 0, 15)
+        DescLabel.Position = UDim2.new(0, 0, 0, 32)
+        DescLabel.Text = description
+        DescLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+        DescLabel.BackgroundTransparency = 1
+        DescLabel.Font = Enum.Font.Gotham
+        DescLabel.TextSize = 10
+        DescLabel.Parent = ButtonFrame
         
         local function UpdateButton()
             if getgenv()[toggleVar] then
-                Button.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
-                Button.Text = text .. " ✓"
+                Button.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+                Button.Text = "✅ " .. text
             else
-                Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
                 Button.Text = text
             end
         end
@@ -153,81 +271,57 @@ function CreateSilentAimUI()
         Button.MouseButton1Click:Connect(function()
             getgenv()[toggleVar] = not getgenv()[toggleVar]
             UpdateButton()
+            print("🔥 " .. text .. ": " .. (getgenv()[toggleVar] and "ВКЛ" or "ВЫКЛ"))
         end)
         
         UpdateButton()
-        return Button
-    end
-
-    local function CreateSlider(text, yPos, valueVar, minVal, maxVal)
-        local SliderFrame = Instance.new("Frame")
-        SliderFrame.Size = UDim2.new(0, 280, 0, 50)
-        SliderFrame.Position = UDim2.new(0, 10, 0, yPos)
-        SliderFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        SliderFrame.Parent = ScrollFrame
-        
-        local Label = Instance.new("TextLabel")
-        Label.Size = UDim2.new(1, 0, 0, 20)
-        Label.Text = text .. ": " .. getgenv()[valueVar]
-        Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Label.BackgroundTransparency = 1
-        Label.Font = Enum.Font.Gotham
-        Label.TextSize = 12
-        Label.Parent = SliderFrame
-        
-        local Slider = Instance.new("TextButton")
-        Slider.Size = UDim2.new(0, 260, 0, 20)
-        Slider.Position = UDim2.new(0, 10, 0, 25)
-        Slider.Text = ""
-        Slider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        Slider.Parent = SliderFrame
-        
-        local Fill = Instance.new("Frame")
-        Fill.Size = UDim2.new((getgenv()[valueVar] - minVal) / (maxVal - minVal), 0, 1, 0)
-        Fill.Position = UDim2.new(0, 0, 0, 0)
-        Fill.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-        Fill.BorderSizePixel = 0
-        Fill.Parent = Slider
-        
-        Slider.MouseButton1Down:Connect(function()
-            local connection
-            connection = RunService.RenderStepped:Connect(function()
-                local mousePos = UserInputService:GetMouseLocation()
-                local relativeX = math.clamp(mousePos.X - Slider.AbsolutePosition.X, 0, Slider.AbsoluteSize.X)
-                local value = minVal + (relativeX / Slider.AbsoluteSize.X) * (maxVal - minVal)
-                getgenv()[valueVar] = math.floor(value)
-                Label.Text = text .. ": " .. getgenv()[valueVar]
-                Fill.Size = UDim2.new((getgenv()[valueVar] - minVal) / (maxVal - minVal), 0, 1, 0)
-            end)
-            
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    connection:Disconnect()
-                end
-            end)
-        end)
-        
-        return SliderFrame
+        return ButtonFrame
     end
 
     local yPos = 10
-    CreateButton("🎯 SILENT AIM", yPos, "SilentAimEnabled")
-    yPos = yPos + 40
-    CreateButton("⭕ FOV CIRCLE", yPos, "FOVCircle")
-    yPos = yPos + 40
-    CreateButton("👥 TEAM CHECK", yPos, "TeamCheck")
-    yPos = yPos + 40
-    CreateButton("👀 VISIBLE CHECK", yPos, "VisibleCheck")
-    yPos = yPos + 50
-    CreateSlider("FOV SIZE", yPos, "FOVSize", 20, 200)
+    CreateGodButton("🛡️ GOD MODE", yPos, "GodMode", "Бессмертие - тебя невозможно убить")
+    yPos = yPos + 55
+    CreateGodButton("💀 ONE SHOT KILL", yPos, "OneShotKill", "Одно попадание - убийство врага")
+    yPos = yPos + 55
+    CreateGodButton("🔫 INFINITE AMMO", yPos, "InfiniteAmmo", "Бесконечные патроны")
+    yPos = yPos + 55
+    CreateGodButton("🎯 NO RECOIL", yPos, "NoRecoil", "Нет отдачи оружия")
+    yPos = yPos + 55
+    CreateGodButton("⚡ RAPID FIRE", yPos, "RapidFire", "Очень быстрая стрельба")
+    yPos = yPos + 55
+    CreateGodButton("💨 SUPER SPEED", yPos, "SuperSpeed", "Сверхскорость передвижения")
+    yPos = yPos + 55
+    CreateGodButton("🦘 SUPER JUMP", yPos, "SuperJump", "Очень высокие прыжки")
+    yPos = yPos + 55
+    CreateGodButton("🕊️ FLY MODE", yPos, "FlyMode", "Полёт (WASD + Space/Shift)")
 
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 60)
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
 end
 
--- Create UI
-CreateSilentAimUI()
+-- Основные циклы
+RunService.Heartbeat:Connect(function()
+    EnableGodMode()
+    OneShotKillHook()
+    InfiniteAmmo()
+    NoRecoilHook()
+    RapidFireHook()
+    SuperSpeedHook()
+    SuperJumpHook()
+    FlyModeHook()
+    AutoWin()
+end)
 
-print("✅ Silent Aim + FOV Loaded!")
-print("🎯 Стреляй куда угодно - попадаешь в цели в FOV круге")
-print("⭕ FOV круг показывает зону поражения")
-print("👥 Team Check - не стреляет по своим")
+-- Создаем GOD MODE UI
+CreateGodModeUI()
+
+print("🔥 GOD MODE АКТИВИРОВАН!")
+print("🛡️ Бессмертие - тебя нельзя убить")
+print("💀 One Shot Kill - убиваешь с одного попадания") 
+print("🔫 Infinite Ammo - бесконечные патроны")
+print("🎯 No Recoil - нет отдачи")
+print("⚡ Rapid Fire - супер-скорострельность")
+print("💨 Super Speed - очень быстро бегаешь")
+print("🦘 Super Jump - очень высоко прыгаешь")
+print("🕊️ Fly Mode - летаешь по карте")
+print(" ")
+print("🎮 Теперь игра станет ОЧЕНЬ легкой!")
